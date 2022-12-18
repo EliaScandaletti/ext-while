@@ -32,7 +32,8 @@
 \newcommand{\defined}{\!\downarrow}
 
 \title{Extension of the \While\ Language}
-\author[E. Scandaletti]{Elia Scandaletti - 2087934}
+\subtitle{Software Verification Course Homework}
+\author[E. Scandaletti]{Elia Scandaletti\texorpdfstring{ - 2087934\\University of Padova}{}}
 \date[19/12/2022]{19th December 2022}
 
 \begin{document}
@@ -51,9 +52,9 @@
     \begin{itemize}
         \item we want to include integer division between expressions:
               \begin{itemize}
-                  \item this implies that we have to take in account abnormal terminations due to \alert{division by zero};
+                  \item this implies that we have to take in account abnormal terminations due to \emph{division by zero};
               \end{itemize}
-        \item we want to allow expressions that \alert{modify the current state} when evaluated.
+        \item we want to allow expressions that \emph{modify the current state} when evaluated.
     \end{itemize}
 
     ~\\
@@ -138,9 +139,9 @@
 
 \begin{frame}{Semantic Functions}{Arithmetic Expressions}
 
-    In the \While\ language the semantic of arithmetic expressions has the following functionality: $\Aexp \to \State \to \Z$.
+    In the \While\ language we have: $\mathcal{A}: \Aexp \to \State \to \Z$.
 
-    This means that, given an \Aexp, it is evaluated on a given \State.
+    This means that an \Aexp is always evaluated to a integer.
 
     ~\\
     But, in the \ExtWhile\ language:
@@ -241,7 +242,6 @@
 \begin{frame}{Semantic Functions}{Value of Boolean Expressions}
 
     $$\mathcal{V_B} : \Bexp \to \State \hookrightarrow \T$$
-    % \vspace{-2.5\baselineskip}
     \begin{overprint}
         \onslide<1>
         \begin{gather*}
@@ -309,8 +309,7 @@
 \begin{frame}{Structural Operational Semantics}
 
     \begin{itemize}
-        \item We need to define the derivation rules for the structural operational semantics of \ExtWhile.
-        \item We shall define one or more rules per each construct of the \Stm\ syntactic category.
+        \item We need to define the derivation rules for the structural operational semantics;
         \item When evaluating arithmetic and boolean expressions, we must pay attention to:
               \begin{itemize}
                   \item possible exceptions;
