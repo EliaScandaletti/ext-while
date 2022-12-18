@@ -1,0 +1,697 @@
+\documentclass{beamer}
+% \documentclass{article}
+% \usepackage{beamerarticle}
+
+\usepackage{mathtools}
+\usepackage{stmaryrd}
+
+\usetheme{Boadilla}
+\setbeamercovered{transparent} 
+\usefonttheme[onlymath]{serif}
+
+
+\newcommand{\While}{\textbf{While}}
+\newcommand{\ExtWhile}{\textbf{While}\ensuremath{^{\mbox{\footnotesize ext}}}}
+\newcommand{\Num}{\textbf{Num}}
+\newcommand{\Var}{\textbf{Var}}
+\newcommand{\Aexp}{\textbf{Aexp}}
+\newcommand{\Bexp}{\textbf{Bexp}}
+\newcommand{\Stm}{\textbf{Stm}}
+\newcommand{\State}{\textbf{State}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\T}{\textbf{T}}
+\newcommand{\true}{\texttt{true}}
+\newcommand{\false}{\texttt{false}}
+\newcommand{\sskip}{\texttt{skip}}
+\newcommand{\ifelse}[3]{\mathtt{if}\ #1\ \mathtt{then}\ #2\ \mathtt{else}\ #3}
+\newcommand{\while}[2]{\mathtt{while}\ #1\ \mathtt{do}\ #2}
+\newcommand{\sem}[2]{\mathcal{#1} \llbracket #2 \rrbracket}
+\newcommand{\tr}{\mathbf{tt}}
+\newcommand{\ff}{\mathbf{ff}}
+\newcommand{\undefined}{\uparrow}
+\newcommand{\defined}{\!\downarrow}
+
+\title{Extension of the \While\ Language}
+\author[E. Scandaletti]{Elia Scandaletti - 2087934}
+\date[19/12/2022]{19th December 2022}
+
+\begin{document}
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+    \tableofcontents
+\end{frame}
+
+\section{Extension of the \While\ Language}
+
+\begin{frame}{The \ExtWhile\ Language}
+    In this presentation we want to understand how to extend the \While\ language in two different ways:
+    \begin{itemize}
+        \item we want to include integer division between expressions:
+              \begin{itemize}
+                  \item this implies that we have to take in account abnormal terminations due to \alert{division by zero};
+              \end{itemize}
+        \item we want to allow expressions that \alert{modify the current state} when evaluated.
+    \end{itemize}
+
+    ~\\
+    We will call the extended language \ExtWhile.
+
+\end{frame}
+
+\section{Syntax}
+
+\begin{frame}{Syntactic Categories}
+
+    The \ExtWhile\ Language requires five syntactic categories:
+    \begin{itemize}
+        \item numerals $n \in \Num$;
+        \item variables $x \in \Var$;
+        \item arithmetic expressions $a \in \Aexp$;
+        \item boolean expressions $b \in \Bexp$;
+        \item statements $S \in \Stm$.
+    \end{itemize}
+
+    ~\\
+    Each category has its own meta-variable.
+
+\end{frame}
+
+\begin{frame}{Extended Syntax Constructs}
+
+    \begin{align*}
+        \mbox{\Aexp: }
+        a \Coloneq         & \ n
+        \ |\ x
+        \ |\ a_1 + a_2
+        \ |\ a_1 * a_2
+        \ |\ a_1 - a_2                                \\
+        \uncover<2->{\ |\  & \alert<2>{a_1 \div a_2}}
+        \uncover<3->{\ |\ \alert<3>{x+\!+}
+        \ |\ \alert<3>{+\!+x}
+        \ |\ \alert<3>{x-\!-}
+        \ |\ \alert<3>{-\!-x}
+        }                                             \\
+        \mbox{\Bexp: }
+        b \Coloneq         & \ \true
+        \ |\ \false
+        \ |\ \neg b
+        \ |\ b_1 \wedge b_2
+        \ |\ a_1 = a_2
+        \ |\ a_1 \leq a_2
+        \\
+        \mbox{\Stm: }
+        S \Coloneq         & \ x \coloneq a
+        \ |\ \sskip
+        \ |\ S_1; S_2
+        \ |\ \ifelse{b}{S_1}{S_2}                     \\
+        \ |\               & \while{b}{S}
+        \uncover<3->{\ |\ \alert<3>{a}
+        \ |\ \alert<3>{b}}
+    \end{align*}
+
+    ~\\
+    We assume that the structures for \Num\ and \Var\ are given elsewhere.
+\end{frame}
+
+\section{Semantics}
+
+\subsection{Expressions}
+\begin{frame}{Semantic Functions}{Numerals and Variables}
+
+    Each syntax category has a meaning defined by a corresponding semantic function.
+
+    ~\\
+    We assume that semantics for numerals and variables are given elsewhere.
+
+    \begin{block}{Numerals}
+        $$\mathcal N : \Num \to \Z$$
+    \end{block}
+
+    \begin{block}{Variables}
+        $$\State = \Var \to \Z$$
+        $$s \in \State$$
+    \end{block}
+\end{frame}
+
+\begin{frame}{Semantic Functions}{Arithmetic Expressions}
+
+    In the \While\ language the semantic of arithmetic expressions has the following functionality: $\Aexp \to \State \to \Z$.
+
+    This means that, given an \Aexp, it is evaluated on a given \State.
+
+    ~\\
+    But, in the \ExtWhile\ language:
+    \begin{itemize}
+        \item<2-> a division by zero may happen;
+        \item<3-> the state may change during the expression evaluation.
+    \end{itemize}
+    Therefore, we will need to:
+    \begin{itemize}
+        \item<2-> have a partial semantic function;
+        \item<3-> define an additional function that evaluates the state changes.
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Semantic Functions}{State Changing Arithmetic Expressions}
+
+    $$\mathcal{S_A} : \Aexp \to \State \to \State$$
+    \begin{gather*}
+        \begin{aligned}
+            \sem{S_A}{n}      & = \mathrm{id}         &
+            \sem{S_A}{x}      & = \mathrm{id}           \\
+            \sem{S_A}{x+\!+}s & = s[x \mapsto s\;x+1] &
+            \sem{S_A}{x-\!-}s & = s[x \mapsto s\;x-1]   \\
+            \sem{S_A}{+\!+x}s & = s[x \mapsto s\;x+1] &
+            \sem{S_A}{-\!-x}s & = s[x \mapsto s\;x-1]   \\
+        \end{aligned} \\
+        \begin{aligned}
+            \forall \star \in \{+, -, *, \div\}\
+            \sem{S_A}{a_1 \star a_2} & = \sem{S_A}{a_2} \circ \sem{S_A}{a_1}
+        \end{aligned}
+    \end{gather*}
+
+    ~\\
+    Note that the function is total because the expressions that modify the state cannot fail.
+
+\end{frame}
+
+\begin{frame}{Semantic Functions}{Value of Arithmetic Expressions}
+
+    $$\mathcal{V_A} : \Aexp \to \State \hookrightarrow \Z$$
+    \begin{gather*}
+        \begin{aligned}
+            \sem{V_A}{n}s     & = \sem{N}{n} &
+            \sem{V_A}{x}s     & = s\;x         \\
+            \sem{V_A}{x+\!+}s & = s\;x       &
+            \sem{V_A}{x-\!-}s & = s\;x         \\
+            \sem{V_A}{+\!+x}s & = s\;x+1     &
+            \sem{V_A}{-\!-x}s & = s\;x-1
+        \end{aligned} \\
+        \begin{aligned}
+            \sem{V_A}{a_1 \star a_2}s & =
+            \begin{cases}
+                z_1 \star z_2,
+                 & \mbox{if } \sem{V_A}{a_1}s \defined = z_1 \wedge \sem{S_A}{a_1}s = s' \\
+                 & \wedge \sem{V_A}{a_2}s' \defined = z_2                                \\
+                \undefined,
+                 & \mbox{otherwise}
+            \end{cases} \\
+            \sem{V_A}{a_1 \div a_2}s  & =
+            \begin{cases}
+                z_1 \div z_2,
+                 & \mbox{if } \sem{V_A}{a_1}s \defined = z_1 \wedge \sem{S_A}{a_1}s = s' \\
+                 & \wedge \sem{V_A}{a_2}s' \defined = z_2 \neq 0                         \\
+                \undefined,
+                 & \mbox{otherwise}
+            \end{cases}
+        \end{aligned}
+    \end{gather*}
+
+\end{frame}
+
+\begin{frame}{Semantic Functions}{Boolean Expressions}
+
+    The same reasoning applies to the semantic of boolean expression.
+    Therefore we shall have:
+    \begin{itemize}
+        \item a partial semantic function that returns the value of the expression;
+        \item a total semantic function for evaluating the state changes.
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Semantic Functions}{State Changing Boolean Expressions}
+
+    $$\mathcal{S_B} : \Bexp \to \State \to \State$$
+    \begin{align*}
+        \sem{S_B}{\true}          & = \mathrm{id}                         \\
+        \sem{S_B}{\false}         & = \mathrm{id}                         \\
+        \sem{S_B}{\neg b}         & = \sem{S_B}{b}                        \\
+        \sem{S_B}{b_1 \wedge b_2} & = \sem{S_B}{b_2} \circ \sem{S_B}{b_1} \\
+        \sem{S_B}{a_1 = a_2}      & = \sem{S_A}{a_2} \circ \sem{S_A}{a_1} \\
+        \sem{S_B}{a_1 \leq a_2}   & = \sem{S_A}{a_2} \circ \sem{S_A}{a_1}
+    \end{align*}
+
+\end{frame}
+
+\begin{frame}{Semantic Functions}{Value of Boolean Expressions}
+
+    $$\mathcal{V_B} : \Bexp \to \State \hookrightarrow \T$$
+    % \vspace{-2.5\baselineskip}
+    \begin{overprint}
+        \onslide<1>
+        \begin{gather*}
+            \begin{aligned}
+                \sem{V_B}{\true}s  & = \tr &
+                \sem{V_B}{\false}s & = \ff   \\
+            \end{aligned} \\
+            \sem{V_B}{\neg b}s =
+            \begin{cases}
+                \tr,        & \mbox{if } \sem{V_B}{b}s \defined = \ff \\
+                \ff,        & \mbox{if } \sem{V_B}{b}s \defined = \tr \\
+                \undefined, & \mbox{otherwise}
+            \end{cases}
+        \end{gather*}
+
+        \onslide<2>
+        \begin{equation*}
+            \sem{V_B}{b_1 \wedge b_2}s =
+            \begin{cases}
+                \tr,
+                 & \mbox{if } s' = \sem{S_B}{b_1}s \;\wedge                   \\
+                 & \sem{V_B}{b_1}s \defined = \sem{V_B}{b_2}s' \defined = \tr \\
+                \ff,
+                 & \mbox{else if } s' = \sem{S_B}{b_1}s \;\wedge              \\
+                 & \sem{V_B}{b_1}s \defined \wedge \sem{V_B}{b_2}s' \defined  \\
+                \undefined,
+                 & \mbox{otherwise}
+            \end{cases}
+        \end{equation*}
+
+        \onslide<3>
+        \begin{equation*}
+            \sem{V_B}{a_1 = a_2}s =
+            \begin{cases}
+                \tr,
+                 & \mbox{if } s' = \sem{S_A}{a_1}s \;\wedge                  \\
+                 & \sem{V_A}{a_1}s \defined \;= \sem{V_A}{a_2}s' \defined    \\
+                \ff,
+                 & \mbox{else if } s' = \sem{S_A}{a_1}s \;\wedge             \\
+                 & \sem{V_A}{a_1}s \defined \wedge \sem{V_A}{a_2}s' \defined \\
+                \undefined,
+                 & \mbox{otherwise}
+            \end{cases}
+        \end{equation*}
+
+        \onslide<4>
+        \begin{equation*}
+            \sem{V_B}{a_1 \leq a_2}s =
+            \begin{cases}
+                \tr,
+                 & \mbox{if } s' = \sem{S_A}{a_1}s \;\wedge                  \\
+                 & \sem{V_A}{a_1}s \defined \;\leq \sem{V_A}{a_2}s' \defined \\
+                \ff,
+                 & \mbox{else if } s' = \sem{S_A}{a_1}s \;\wedge             \\
+                 & \sem{V_A}{a_1}s \defined \wedge \sem{V_A}{a_2}s' \defined \\
+                \undefined,
+                 & \mbox{otherwise}
+            \end{cases}
+        \end{equation*}
+    \end{overprint}
+
+\end{frame}
+
+\subsection{Structural Operational Semantics}
+\begin{frame}{Structural Operational Semantics}
+
+    \begin{itemize}
+        \item We need to define the derivation rules for the structural operational semantics of \ExtWhile.
+        \item We shall define one or more rules per each construct of the \Stm\ syntactic category.
+        \item When evaluating arithmetic and boolean expressions, we must pay attention to:
+              \begin{itemize}
+                  \item possible exceptions;
+                  \item state change.
+              \end{itemize}
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Structural Operational Semantics}{Derivation Rules}
+
+    \begin{overprint}
+        \onslide<1>
+        \begin{align*}
+            [\mbox{ass}_{\mathrm{sos}}]
+             & \frac
+            {\left< a, s \right> \Rightarrow s'}
+            {\left< x \coloneq a, s \right> \Rightarrow s'[x \mapsto \sem{V_A}{a}s]}
+            \mbox{ if } \sem{V_A}{a}s \defined
+            \\
+            [\mbox{skip}_{\mathrm{sos}}]
+             & \left< \sskip, s \right>
+            \Rightarrow s
+            \\
+            [\mbox{comp}^1_{\mathrm{sos}}]
+             & \frac
+            {\left< S_1, s \right> \Rightarrow \left< S_1', s' \right>}%
+            {\left< S_1; S_2, s \right> \Rightarrow \left< S_1'; S_2, s' \right>}
+            \\
+            [\mbox{comp}^2_{\mathrm{sos}}]
+             & \frac
+            {\left< S_1, s \right> \Rightarrow s'}%
+            {\left< S_1; S_2, s \right> \Rightarrow \left< S_2, s' \right>}
+            \\
+        \end{align*}
+
+        \onslide<2>
+        \begin{align*}
+            [\mbox{if}^{\mathtt{\,tt}}_{\mathrm{sos}}]
+             & \frac
+            {\left< b, s \right> \Rightarrow s'}
+            {\left< \ifelse{b}{S_1}{S_2}, s \right> \Rightarrow \left< S_1, s' \right>}
+            \mbox{ if } \sem{V_B}{b} \defined = \tr
+            \\
+            [\mbox{if}^{\mathtt{\,ff}}_{\mathrm{sos}}]
+             & \frac
+            {\left< b, s \right> \Rightarrow s'}
+            {\left< \ifelse{b}{S_1}{S_2}, s \right> \Rightarrow \left< S_2, s' \right>}
+            \mbox{ if } \sem{V_B}{b} \defined = \ff
+            \\
+            [\mbox{while}_{\mathrm{sos}}]
+             & \left< \while{b}{S}, s \right>                                             \\
+             & \qquad \Rightarrow \left< \ifelse{b}{(S; \while{b}{S})}{\sskip}, s \right>
+            \\
+            [\mbox{Aexp}_{\mathrm{sos}}]
+             & \left< a, s \right> \Rightarrow \sem{S_A}{a}s
+            \\
+            [\mbox{Bexp}_{\mathrm{sos}}]
+             & \left< b, s \right> \Rightarrow \sem{S_B}{b}s
+            \\
+        \end{align*}
+    \end{overprint}
+
+\end{frame}
+
+\begin{frame}{Structural Operational Semantics}{Semantic Function}
+
+    $$\mathcal{S}_{\mathrm{sos}}: \Stm \to \State \hookrightarrow \State$$
+    \begin{equation*}
+        \sem{S_{\mathrm{sos}}}{S}s =
+        \begin{cases}
+            s',       & \mbox{if } \left< S, s \right> \Rightarrow^* s' \\
+            \uparrow, & \mbox{otherwise}
+        \end{cases}
+    \end{equation*}
+
+    $\gamma \Rightarrow^* \gamma'$ means that exists a finite derivation sequence starting in $\gamma$ and ending in $\gamma'.$
+
+\end{frame}
+
+\subsection{Denotational Semantics}
+\begin{frame}{Denotational Semantics}{Semantic Function}
+
+    $$\mathcal{S}_{\mathrm{ds}}: \Stm \to \State \hookrightarrow \State$$
+    \begin{overprint}
+        \onslide<1>
+        \begin{align*}
+            \sem{S_{\mathrm{ds}}}{x \coloneq a}s & =
+            (\mathrm{set}(x, \sem{V_A}{a}s) \circ \sem{S_\mathrm{ds}}{a})s \\
+            \mbox{where } \mathrm{set}(x, z)\;s  & =
+            \begin{cases}
+                s[x \mapsto z], & \mbox{if } z\defined \\
+                \undefined,     & \mbox{otherwise}
+            \end{cases}                         \\
+            \sem{S_{\mathrm{ds}}}{\sskip}        & =
+            \mathrm{id}                                                    \\
+            \sem{S_{\mathrm{ds}}}{S_1; S_2}      & =
+            \sem{S_{\mathrm{ds}}}{S_2} \circ \sem{S_{\mathrm{ds}}}{S_1}    \\
+            \sem{S_{\mathrm{ds}}}{a}             & =
+            \sem{S_A}{a}                                                   \\
+            \sem{S_{\mathrm{ds}}}{b}             & =
+            \sem{S_B}{b}
+        \end{align*}
+
+        \onslide<2>
+        \begin{gather*}
+            \begin{multlined}[][0.8\textwidth]
+                \sem{S_{\mathrm{ds}}}{\ifelse{b}{S_1}{S_2}} = \\
+                \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_{\mathrm{ds}}}{S_1}, \sem{S_{\mathrm{ds}}}{S_2})
+            \end{multlined} \\
+            \mbox{where } \mathrm{cond}(p, g_0, g_1, g_2)\;s =
+            \begin{cases}
+                g_1\;(g_0\;s), & \mbox{if } p\;s\defined = \tr \\
+                g_2\;(g_0\;s), & \mbox{if } p\;s\defined = \ff \\
+                \bot,          & \mbox{otherwise}
+            \end{cases}
+        \end{gather*}
+        Note that the functionality of $\mathrm{cond}$ is:
+        \begin{multline*}
+            (\State \hookrightarrow \T) \times (\State \hookrightarrow \State) \times \\
+            (\State \hookrightarrow \State) \times (\State \hookrightarrow \State) \to (\State \hookrightarrow \State)
+        \end{multline*}
+
+        \onslide<3>
+        \begin{align*}
+            \sem{S_{\mathrm{ds}}}{\while{b}{S}} & =
+            \mathrm{FIX}\;F                         \\
+            \mbox{where } F\;g                  & =
+            \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, g \circ \sem{S_{\mathrm{ds}}}{S},\mathrm{id})
+        \end{align*}
+
+        This comes from the semantic equivalence
+        \begin{align*}
+            \sem{S_{\mathrm{ds}}}{\while{b}{S}}
+             & = \sem{S_{\mathrm{ds}}}{\ifelse{b}{(S; \while{b}{S})}{\sskip}}                                                                        \\
+             & = \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_{\mathrm{ds}}}{S; \while{b}{S}},\mathrm{id})                             \\
+             & = \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_{\mathrm{ds}}}{\while{b}{S}} \circ \sem{S_{\mathrm{ds}}}{S},\mathrm{id})
+        \end{align*}
+    \end{overprint}
+
+\end{frame}
+
+\begin{frame}{Denotational Semantics}{Proof of Existance of $\mathrm{FIX}\;F$}
+
+    To prove that $F = F_1 \circ F_2$ is continuous, we shall prove that:
+    \begin{itemize}
+        \item<1,2-3> $F_2\;g = \alt<1>{g \circ \sem{S_\mathrm{ds}}{S}}{g \circ g_0}$ is continuous.
+        \item<1,4> $F_1\;g = \alt<1>{\mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, g, \mathrm{id})}{\mathrm{cond}(p, g_0, g, g_2)}$ is continuous.
+    \end{itemize}
+
+    \begin{overprint}
+        \onslide<2,3>
+        We shall prove that:
+        \begin{itemize}
+            \item<2> $F_2$ is monotone;
+            \item<3> $F_2$ is continuous.
+        \end{itemize}
+        \begin{onlyenv}<2>
+            \begin{align*}
+                g_1 \sqsubseteq g_2
+                 & \implies g_1\;s = s' \Rightarrow g_2\;s = s'\ \forall s               \\
+                 & \implies g_1\;(g_0\;s) = s' \Rightarrow g_2\;(g_0\;s) = s'\ \forall s \\
+                 & \implies F\;g_1 \sqsubseteq F\;g_2
+            \end{align*}
+        \end{onlyenv}
+        \begin{onlyenv}<3>
+            \begin{gather*}
+                (\bigsqcup Y) s = s' \iff \exists g \in Y . g\;s = s' \\
+                \begin{multlined}
+                    F_2(\bigsqcup Y)s = (\bigsqcup Y)\;(g_0\;s) = s' \\
+                    \implies \exists g \in Y . g\;(g_0\;s) = s'               \\
+                    \implies \bigsqcup\{F_2\;g \mid g \in Y\}s = s'
+                \end{multlined}
+            \end{gather*}
+        \end{onlyenv}
+
+        \onslide<4>
+        \begin{equation*}
+            F_1\;g =
+            \mathrm{cond}(p, g_0, g, g_2)\;s =
+            \begin{cases}
+                g\;(g_0\;s),   & \mbox{if } p\;s\defined = \tr \\
+                g_2\;(g_0\;s), & \mbox{if } p\;s\defined = \ff \\
+                \bot,          & \mbox{otherwise}
+            \end{cases}
+        \end{equation*}
+        \begin{itemize}
+            \item if $p\;s\defined = \tr$, $F_1\;g = g \circ g_0$ continuous as we just proved;
+            \item if $p\;s\defined = \tr$, $F_1\;g = g_2 \circ g_0$ which is constant and  therefore continuous;
+            \item if $p\;s\!\undefined$, $F_1\;g = \bot$ which is constant and  therefore continuous.
+        \end{itemize}
+    \end{overprint}
+
+\end{frame}
+
+\section{Equivalence between Semantics}
+
+\begin{frame}{SOS and DS Equivalence}
+
+    We want to prove that $\sem{S_\mathrm{sos}}{S} = \sem{S_\mathrm{ds}}{S}$, i.e.:
+    \begin{itemize}
+        \item $\sem{S_\mathrm{sos}}{S} \sqsubseteq \sem{S_\mathrm{ds}}{S}$:
+              \begin{itemize}
+                  \item induction on the length of the derivation sequence;
+                  \item induction on the shape of the derivation tree;
+              \end{itemize}
+        \item $\sem{S_\mathrm{ds}}{S} \sqsubseteq \sem{S_\mathrm{sos}}{S}$:
+              \begin{itemize}
+                  \item structural induction on the statement S.
+              \end{itemize}
+    \end{itemize}
+
+\end{frame}
+
+\begin{frame}{SOS and DS Equivalence}{$\sem{S_\mathrm{sos}}{S} \sqsubseteq \sem{S_\mathrm{ds}}{S}$}
+
+    \begin{overprint}
+        \onslide<1>
+        We need to prove that
+        $$\left<S, s\right> \Rightarrow^*s' \implies \sem{S_\mathrm{ds}}{S}s = s'$$
+        Assuming the following, the proof is an induction on the length of the derivation sequence.
+        \begin{align*}
+            \left<S, s\right> \Rightarrow s'                  & \implies \sem{S_\mathrm{ds}}{S}s = s'                        \\
+            \left<S, s\right> \Rightarrow \left<S', s'\right> & \implies \sem{S_\mathrm{ds}}{S}s = \sem{S_\mathrm{ds}}{S'}s'
+        \end{align*}
+        To prove these two statements we will proceed by induction on shape of the derivation tree.
+
+        Only the most peculiar cases will be reported.
+
+        \onslide<2>
+        \begin{block}{Case $[\mbox{ass}_{\mathrm{sos}}]$}
+            Assume $\left< x \coloneq a, s \right> \Rightarrow s'[x \mapsto \sem{V_A}{a}s]$
+            because $\left< a, s \right> \Rightarrow s'$ and $\sem{V_A}{a}s \defined$.
+            \medskip
+
+            By induction hypothesis, $\sem{S_\mathrm{ds}}{a}s = s'$.
+            \medskip
+
+            We have
+            \begin{align*}
+                \sem{S_{\mathrm{ds}}}{x \coloneq a}s & =
+                (\mathrm{set}(x, \sem{V_A}{a}s) \circ \sem{S_\mathrm{ds}}{a})s                                                 \\
+                                                     & =
+                \begin{cases}
+                    (\sem{S_\mathrm{ds}}{a}s)[x \mapsto \sem{V_A}{a}s], & \mbox{if } \sem{V_A}{a}s \defined \\
+                    \undefined,                                         & \mbox{otherwise}
+                \end{cases} \\
+                                                     & = s'[x \mapsto \sem{V_A}{a}s], \mbox{ because } \sem{V_A}{a}s\defined
+            \end{align*}
+        \end{block}
+
+        \onslide<3>
+        \begin{block}{Case $[\mbox{if}^{\mathtt{\,tt}}_{\mathrm{sos}}]$}
+            Assume $\left< \ifelse{b}{S_1}{S_2}, s \right> \Rightarrow \left< S_1, s' \right>$
+            because $\left< b, s \right> \Rightarrow s'$ and $\sem{V_B}{b} \defined = \tr$.
+            \medskip
+
+            By induction hypothesis, $\sem{S_\mathrm{ds}}{b}s = s'$.
+            \medskip
+
+            We have
+            \begin{equation*}
+                \begin{multlined}[][0.8\textwidth]
+                    \sem{S_{\mathrm{ds}}}{\ifelse{b}{S_1}{S_2}}s \\
+                    \begin{aligned}
+                         & = \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_{\mathrm{ds}}}{S_1}, \sem{S_{\mathrm{ds}}}{S_2})s          \\
+                         & =
+                        \begin{cases}
+                            \sem{S_{\mathrm{ds}}}{S_1}(\sem{S_\mathrm{ds}}{b}s),   & \mbox{if } \sem{V_B}{b}s\defined = \tr \\
+                            \sem{S_{\mathrm{ds}}}{S_2}\;(\sem{S_\mathrm{ds}}{b}s), & \mbox{if } \sem{V_B}{b}s\defined = \ff \\
+                            \bot,                                                  & \mbox{otherwise}
+                        \end{cases} \\
+                         & = \sem{S_{\mathrm{ds}}}{S_1}(\sem{S_\mathrm{ds}}{b}s)
+                        = \sem{S_{\mathrm{ds}}}{S_1}s'
+                    \end{aligned}
+                \end{multlined}
+            \end{equation*}
+        \end{block}
+
+        \onslide<4>
+        \begin{block}{Case $[\mbox{Aexp}_{\mathrm{sos}}]$}
+            Assume $\left< a, s \right> \Rightarrow \sem{S_A}{a}s$.
+            \medskip
+
+            We have
+            $$\sem{S_{\mathrm{ds}}}{a}s = \sem{S_A}{a}s$$
+        \end{block}
+        \begin{block}{Case $[\mbox{Bexp}_{\mathrm{sos}}]$}
+            Assume $\left< b, s \right> \Rightarrow \sem{S_B}{b}s$.
+            \medskip
+
+            We have
+            $$\sem{S_{\mathrm{ds}}}{b}s = \sem{S_B}{b}s$$
+        \end{block}
+    \end{overprint}
+
+\end{frame}
+
+\begin{frame}{SOS and DS Equivalence}{$\sem{S_\mathrm{ds}}{S} \sqsubseteq \sem{S_\mathrm{sos}}{S}$}
+
+    \begin{overprint}
+        \onslide<1>
+        \begin{block}{Case $x \coloneq a$}
+            Let $s' = \sem{S_\mathrm{ds}}{a}s = \sem{S_\mathrm{sos}}{a}s$ by induction hypothesis.
+
+            We have
+            \begin{align*}
+                \sem{S_{\mathrm{ds}}}{x \coloneq a}s & =
+                (\mathrm{set}(x, \sem{V_A}{a}s) \circ \sem{S_\mathrm{ds}}{a})s   \\
+                                                     & =
+                \begin{cases}
+                    s'[x \mapsto \sem{V_A}{a}s], & \mbox{if } \sem{V_A}{a}s \defined \\
+                    \undefined,                  & \mbox{otherwise}
+                \end{cases} \\
+                                                     & = s''
+            \end{align*}
+
+            Since $s''\defined \implies \sem{V_A}{a}s \defined$, we can apply $[\mbox{ass}_{\mathrm{sos}}]$ and get
+            $$\left< x \coloneq a, s \right> \Rightarrow s'[x \mapsto \sem{V_A}{a}s] = s''$$
+        \end{block}
+
+        \onslide<2>
+        \begin{block}{Case $\ifelse{b}{S_1}{S_2}$}
+            \begin{itemize}
+                \item Case $\sem{V_B}{b}\defined = \tr$:
+                      \begin{multline*}
+                          \sem{S_\mathrm{ds}}{\ifelse{b}{S_1}{S_2}} = \sem{S_\mathrm{ds}}{S_1}\\
+                          \begin{aligned}
+                               & \sqsubseteq \sem{S_\mathrm{sos}}{S_1}, \mbox{ by induction hypothesis}                                 \\
+                               & = \sem{S_\mathrm{sos}}{\ifelse{b}{S_1}{S_2}}, \mbox{ from } [\mbox{if}^{\mathtt{\,tt}}_{\mathrm{sos}}]
+                          \end{aligned}
+                      \end{multline*}
+                \item Case $\sem{V_B}{b}\defined = \ff$: analogous.
+                      \medskip
+                \item Case $\sem{V_B}{b}\!\undefined$: \\
+                      $\sem{S_\mathrm{ds}}{\ifelse{b}{S_1}{S_2}}\!\undefined$ therefore the property holds vacuously.
+            \end{itemize}
+        \end{block}
+
+        \onslide<3>
+        \begin{block}{Case $\while{b}{S}$}
+            We want to prove that
+            \begin{gather*}
+                F(\sem{S_\mathrm{sos}}{\while{b}{S}}) \sqsubseteq \sem{S_\mathrm{sos}}{\while{b}{S}} \\
+                \mbox{where } F\;g = \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, g \circ \sem{S_{\mathrm{ds}}}{S},\mathrm{id})
+            \end{gather*}
+            because then $\mathrm{FIX}\ F \sqsubseteq \sem{S_\mathrm{sos}}{\while{b}{S}}$.
+            \begin{multline*}
+                F(\sem{S_\mathrm{sos}}{\while{b}{S}}) \\
+                \begin{aligned}
+                     & = \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_\mathrm{sos}}{\while{b}{S}} \circ \sem{S_{\mathrm{ds}}}{S},\mathrm{id})            \\
+                     & \sqsubseteq \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_\mathrm{sos}}{\while{b}{S}} \circ \sem{S_{\mathrm{sos}}}{S},\mathrm{id}) \\
+                     & \sqsubseteq \mathrm{cond}(\sem{V_B}{b}, \sem{S_\mathrm{ds}}{b}, \sem{S_\mathrm{sos}}{S; \while{b}{S}},\mathrm{id})                              \\
+                     & = \sem{S_\mathrm{sos}}{\while{b}{S}}
+                \end{aligned}
+            \end{multline*}
+        \end{block}
+
+
+        \onslide<4>
+        \begin{block}{Case $a$}
+            \begin{align*}
+                \sem{S_{\mathrm{ds}}}{a}s
+                 & = \sem{S_A}{a}s                                                          \\
+                 & = \sem{S_{\mathrm{sos}}}{a}s, \mbox{ from } [\mbox{Aexp}_{\mathrm{sos}}]
+            \end{align*}
+        \end{block}
+        \begin{block}{Case $b$}
+            \begin{align*}
+                \sem{S_{\mathrm{ds}}}{b}s
+                 & = \sem{S_B}{b}s                                                          \\
+                 & = \sem{S_{\mathrm{sos}}}{b}s, \mbox{ from } [\mbox{Bexp}_{\mathrm{sos}}]
+            \end{align*}
+        \end{block}
+    \end{overprint}
+
+\end{frame}
+
+\begin{frame}
+    \centering \huge
+    \emph{Thank you for your attention!}
+\end{frame}
+
+\end{document}
